@@ -159,11 +159,26 @@ pub fn render(
             #(#variants)*
         }
 
-        unsafe impl ::bare_metal::Nr for Interrupt {
+        pub use ::bare_metal::Nr;
+
+        unsafe impl Nr for Interrupt {
             #[inline]
             fn nr(&self) -> u8 {
                 match *self {
                     #(#arms)*
+                }
+            }
+        }
+
+        #[derive(Debug, Copy, Clone)]
+        pub struct TryFromInterruptError(());
+
+        impl Interrupt {
+            #[inline]
+            pub fn try_from(value: u8) -> Result<Self, TryFromInterruptError> {
+                match value {
+                    #(#from_arms)*
+                    _ => Err(TryFromInterruptError(())),
                 }
             }
         }
@@ -172,22 +187,7 @@ pub fn render(
     if target == Target::CortexM {
         root.push(interrupt_enum);
     } else {
-        mod_items.push(quote! {
-            #interrupt_enum
-
-            #[derive(Debug, Copy, Clone)]
-            pub struct TryFromInterruptError(());
-
-            impl Interrupt {
-                #[inline]
-                pub fn try_from(value: u8) -> Result<Self, TryFromInterruptError> {
-                    match value {
-                        #(#from_arms)*
-                        _ => Err(TryFromInterruptError(())),
-                    }
-                }
-            }
-        });
+        mod_items.push(interrupt_enum);
     }
 
     if target != Target::None {
@@ -257,7 +257,7 @@ pub fn render(
         });
 
         root.push(quote! {
-            pub use self::interrupt::Interrupt;
+            pub use self::interrupt::{Interrupt, Nr, TryFromInterruptError};
         });
     }
 
